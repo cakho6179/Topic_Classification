@@ -1,0 +1,90 @@
+# =============================================================================
+# TOPIC RESEARCH CONFIGURATION
+# Vietnamese Social Listening NLP Engine - Single-Label Topic Classification (13 Classes)
+# =============================================================================
+
+project:
+  name: "vietnamese-topic-classification"
+  domain: "automotive_social_listening"
+  num_classes: 13
+  label_mapping:
+    T01: 0
+    T02: 1
+    T03: 2
+    T04: 3
+    T05: 4
+    T06: 5
+    T07: 6
+    T08: 7
+    T09: 8
+    T10: 9
+    T11: 10
+    T12: 11
+    T13: 12
+
+data:
+  raw_excel_path: "data/raw/Vietnamese_Social_Listening_Synthetic_1000.xlsx"
+  clean_data_path: "data/processed/clean_data.csv"
+  deduplicate_by: "comment_id"
+  split_strategy: "group_kfold"
+  group_column: "thread_id"
+  n_splits: 5
+  test_size: 0.15
+  val_size: 0.15
+  random_seed: 42
+
+preprocessing:
+  unicode_form: "NFC"
+  lowercase: false          # Conservative: keep cased representation
+  remove_emoji: false       # Conservative: keep 100% emojis
+  remove_punctuation: false # Conservative: keep natural punctuation
+  max_token_length: 256
+  include_context: true     # Format: Target: {target} [SEP] Context: {context}
+  exclude_brand: true       # Strict isolation: Brand must NEVER appear in topic input
+
+baseline_tfidf:
+  word_ngram_range: [1, 2]
+  word_min_df: 2
+  word_max_df: 0.95
+  char_ngram_range: [3, 5]
+  char_min_df: 3
+  char_max_df: 0.95
+  classifier: "linear_svm"  # options: linear_svm, logistic_regression
+  svm_C: 1.0
+  calibrate_probabilities: true
+
+transformer_encoder:
+  backbones:
+    visobert:
+      model_name: "bavest/visobert-base-v2"
+      tokenizer_type: "bpe"
+      use_word_segmentation: false
+    phobert:
+      model_name: "vinai/phobert-base-v2"
+      tokenizer_type: "fast_bpe"
+      use_word_segmentation: true
+      segmenter: "pyvi"
+  pooling: "mean"           # options: mean, cls, attention
+  use_multi_sample_dropout: true
+  num_dropout_samples: 5
+  dropout_rate: 0.2
+  learning_rate_backbone: 2.0e-5
+  learning_rate_head: 1.0e-4
+  weight_decay: 0.01
+  batch_size: 32
+  epochs: 6
+  warmup_ratio: 0.1
+  scheduler: "cosine"
+  mixed_precision: "fp16"
+
+loss_function:
+  active_loss: "focal"      # options: cross_entropy, weighted_ce, focal, class_balanced
+  focal:
+    gamma: 2.0
+  class_balanced:
+    beta: 0.999
+    gamma: 2.0
+
+inference_selective:
+  confidence_threshold: 0.55
+  temperature_scaling: true
